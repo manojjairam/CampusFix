@@ -2,80 +2,91 @@ import ollama
 
 
 # ==================================================
-# LOCAL OLLAMA VISION MODEL
+# LOCAL LIGHTWEIGHT VISION MODEL
 # ==================================================
 
-MODEL_NAME = "llava:latest"
+MODEL_NAME = "moondream"
 
 
 # ==================================================
-# ANALYZE MAINTENANCE ISSUE IMAGE
+# ANALYZE IMAGE AND CREATE TICKET DATA
 # ==================================================
 
 def analyze_issue_image(
     image_path,
-    user_description=""
+    user_description="",
+    location="",
+    room=""
 ):
-    """
-    Analyze a university maintenance issue image using
-    the local LLaVA vision model through Ollama.
-
-    The analysis focuses on:
-    - Detecting the visible object or affected area
-    - Identifying visible maintenance problems
-    - Describing the observed condition
-    - Estimating confidence based on the image
-
-    Parameters:
-        image_path: Local path of the uploaded image.
-        user_description: Optional description provided
-                          by the student.
-
-    Returns:
-        A structured maintenance issue analysis.
-    """
 
     prompt = f"""
-You are CampusFix Vision AI, an image-based maintenance
-issue detection assistant for a university campus.
+You are CampusFix, a university maintenance issue detection
+assistant.
 
-Analyze the uploaded image carefully.
+Your job is to examine ONE uploaded image and create the
+maintenance ticket information directly.
 
-Your primary task is to identify the MAIN visible object,
-equipment, infrastructure, or campus area related to the
-reported maintenance problem.
-
-Then identify the visible maintenance issue affecting it.
+The student may also provide a description. Use the image as
+the primary source and the description only as supporting
+information.
 
 STUDENT DESCRIPTION:
-{user_description if user_description else "No description provided."}
+{user_description if user_description.strip() else "No description provided."}
 
-IMPORTANT RULES:
+CAMPUS LOCATION:
+Building: {location if location else "Not provided"}
+Room / Exact Location: {room if room else "Not provided"}
 
-1. Analyze the actual uploaded image first.
-2. Identify the main affected object or area that is visible.
-3. Identify only maintenance issues reasonably supported by
-   the image or the student's description.
-4. Do not invent damage, hazards, objects, or conditions.
-5. The student description can provide supporting context,
-   especially when a problem such as noise, vibration, or
-   malfunction cannot be directly seen in a still image.
-6. If the exact issue cannot be visually confirmed, clearly
-   state that the reported problem is based on the student's
-   description.
-7. Focus only on university maintenance-related issues.
-8. Keep every field concise and useful for ticket generation.
-9. Return ONLY the exact format below.
-10. Do not add explanations before or after the analysis.
+Analyze the maintenance problem and return ONLY the following
+six lines.
 
-Return exactly in this format:
+Issue Category: <category>
+Issue Title: <short professional title>
+Severity: <Low, Normal, High, or Critical>
+Description: <one concise description>
+Recommended Action: <one short action>
+Assigned Department: <responsible department>
 
-Detected Object/Area: <main visible object or affected area>
-Detected Issue: <main maintenance problem>
-Visible Condition: <observed condition>
-Evidence: <brief visual evidence or description-supported evidence>
-Possible Maintenance Concern: <likely maintenance concern>
-Visual Confidence: <High, Medium, or Low>
+STRICT RULES:
+
+1. Analyze the uploaded image first.
+2. Identify the main visible object or affected area.
+3. Identify the maintenance problem shown in the image.
+4. Do not invent objects, damage, hazards, or faults.
+5. If the exact fault is unclear, use cautious wording.
+6. Use the student description only to support the image.
+7. Issue Category must be relevant to university maintenance.
+8. Severity must be exactly one of:
+   Low
+   Normal
+   High
+   Critical
+9. Keep every value short.
+10. Do not explain your reasoning.
+11. Do not use markdown.
+12. Do not add extra text.
+13. Return all six fields.
+14. Never leave a field empty.
+
+Choose an appropriate category such as:
+Electrical Maintenance
+Plumbing
+Furniture Maintenance
+Civil Maintenance
+HVAC
+IT Equipment
+Cleaning and Sanitation
+Safety Maintenance
+General Maintenance
+
+Choose an appropriate department such as:
+Electrical Maintenance Department
+Plumbing Department
+Civil Maintenance Department
+Facilities Management
+IT Support Department
+Housekeeping Department
+General Maintenance Department
 """
 
     try:
@@ -90,8 +101,11 @@ Visual Confidence: <High, Medium, or Low>
                 }
             ],
             options={
-                "temperature": 0.1
-            }
+                "temperature": 0,
+                "num_predict": 120,
+                "num_ctx": 1024
+            },
+            keep_alive="15m"
         )
 
         analysis = response["message"]["content"].strip()
@@ -100,14 +114,15 @@ Visual Confidence: <High, Medium, or Low>
 
             return (
                 "Error: The local vision model returned "
-                "an empty analysis."
+                "an empty response."
             )
 
         return analysis
 
+
     except Exception as error:
 
         return (
-            "Error: Unable to analyze the image using "
-            f"the local LLaVA vision model: {error}"
+            "Error: Unable to analyze the maintenance image: "
+            f"{error}"
         )

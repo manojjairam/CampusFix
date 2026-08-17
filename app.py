@@ -1,10 +1,11 @@
 import streamlit as st
 import os
+import shutil
+import time
 from datetime import datetime
+from pathlib import Path
 
 from src.vision_analyzer import analyze_issue_image
-from src.ticket_generator import generate_ticket
-from src.safety_checker import check_safety
 from src.database import (
     save_ticket,
     get_ticket_details,
@@ -22,6 +23,18 @@ st.set_page_config(
     page_title="CampusFix",
     page_icon="🏫",
     layout="wide"
+)
+
+
+# ==================================================
+# IMAGE STORAGE CONFIGURATION
+# ==================================================
+
+UPLOAD_FOLDER = Path("data/uploads")
+
+UPLOAD_FOLDER.mkdir(
+    parents=True,
+    exist_ok=True
 )
 
 
@@ -121,9 +134,10 @@ CAMPUS_LOCATIONS = {
 # HELPER FUNCTIONS
 # ==================================================
 
-def format_ticket_date(date_value):
+def format_ticket_datetime(date_value):
 
     if not date_value:
+
         return "Not available"
 
     try:
@@ -134,7 +148,7 @@ def format_ticket_date(date_value):
         )
 
         return date_object.strftime(
-            "%d %b %Y"
+            "%d %b %Y, %I:%M %p"
         )
 
     except ValueError:
@@ -150,13 +164,319 @@ def parse_ticket_result(ticket_result):
 
         if ":" in line:
 
-            key, value = line.split(":", 1)
+            key, value = line.split(
+                ":",
+                1
+            )
 
             ticket_data[
                 key.strip().lower()
             ] = value.strip()
 
     return ticket_data
+
+
+def save_uploaded_image(
+    uploaded_image,
+    prefix
+):
+
+    if uploaded_image is None:
+
+        return ""
+
+    file_extension = Path(
+        uploaded_image.name
+    ).suffix.lower()
+
+    timestamp = datetime.now().strftime(
+        "%Y%m%d_%H%M%S_%f"
+    )
+
+    image_filename = (
+        f"{prefix}_{timestamp}{file_extension}"
+    )
+
+    permanent_path = (
+        UPLOAD_FOLDER / image_filename
+    )
+
+    with open(
+        permanent_path,
+        "wb"
+    ) as destination:
+
+        shutil.copyfileobj(
+            uploaded_image,
+            destination
+        )
+
+    return str(permanent_path)
+
+
+def display_ticket_image(ticket):
+
+    image_path = ""
+
+    try:
+
+        image_path = ticket["image_path"]
+
+    except (
+        IndexError,
+        KeyError,
+        TypeError
+    ):
+
+        image_path = ""
+
+    if image_path and os.path.exists(image_path):
+
+        st.subheader(
+            "📷 Uploaded Issue Image"
+        )
+
+        st.image(
+            image_path,
+            caption="Maintenance Issue Image",
+            use_container_width=True
+        )
+
+
+# ==================================================
+# CREATE MAINTENANCE TICKET
+# ==================================================
+
+def create_maintenance_ticket(
+    student_name,
+    register_number,
+    location,
+    room,
+    description,
+    uploaded_image,
+    image_prefix
+):
+
+    # ==============================================
+    # STEP 1 - SAVE IMAGE
+    # ==============================================
+
+    start_time = time.time()
+
+    permanent_image_path = save_uploaded_image(
+        uploaded_image,
+        image_prefix
+    )
+
+    image_save_time = round(
+        time.time() - start_time,
+        3
+    )
+
+    # ==============================================
+    # STEP 2 - FAST ISSUE ANALYSIS
+    # ==============================================
+
+    start_time = time.time()
+
+    analysis_result = analyze_issue_image(
+        image_path=permanent_image_path,
+        user_description=description,
+        location=location,
+        room=room
+    )
+
+    analysis_time = round(
+        time.time() - start_time,
+        3
+    )
+
+    if str(analysis_result).startswith("Error"):
+
+        return (
+            None,
+            analysis_result,
+            ""
+        )
+
+    # ==============================================
+    # STEP 3 - PARSE RESULT
+    # ==============================================
+
+    start_time = time.time()
+
+    ticket_data = parse_ticket_result(
+        analysis_result
+    )
+
+    parse_time = round(
+        time.time() - start_time,
+        3
+    )
+
+    # ==============================================
+    # STEP 4 - PREPARE DATABASE DATA
+    # ==============================================
+
+    database_ticket = {
+        "student_name": student_name.strip(),
+
+        "register_number": register_number.strip(),
+
+        "issue_category": ticket_data.get(
+            "issue category",
+            "General Maintenance"
+        ),
+
+        "issue_title": ticket_data.get(
+            "issue title",
+            "Maintenance Issue"
+        ),
+
+        "severity": ticket_data.get(
+            "severity",
+            "Normal"
+        ),
+
+        "description": ticket_data.get(
+            "description",
+            description
+        ),
+
+        "recommended_action": ticket_data.get(
+            "recommended action",
+            "Maintenance inspection required"
+        ),
+
+        "assigned_department": ticket_data.get(
+            "assigned department",
+            "General Maintenance"
+        ),
+
+        "location": location,
+
+        "room": room,
+
+        "student_description": description,
+
+        "image_path": permanent_image_path
+    }
+
+    # ==============================================
+    # STEP 5 - SAVE TO DATABASE
+    # ==============================================
+
+    start_time = time.time()
+
+    ticket_id = save_ticket(
+        database_ticket
+    )
+
+    database_time = round(
+        time.time() - start_time,
+        3
+    )
+
+    # ==============================================
+    # PERFORMANCE RESULT
+    # ==============================================
+
+    performance_info = (
+        f"Image Save: {image_save_time}s | "
+        f"Analysis: {analysis_time}s | "
+        f"Parsing: {parse_time}s | "
+        f"Database: {database_time}s"
+    )
+
+    print(
+        f"CampusFix Performance: {performance_info}"
+    )
+
+    return (
+        ticket_id,
+        database_ticket,
+        performance_info
+    )
+
+
+# ==================================================
+# DISPLAY CREATED TICKET
+# ==================================================
+
+def display_created_ticket(
+    ticket_id,
+    ticket_data,
+    student_name,
+    register_number,
+    performance_info=""
+):
+
+    created_datetime = datetime.now().strftime(
+        "%d %b %Y, %I:%M %p"
+    )
+
+    st.success(
+        "Maintenance ticket created successfully!"
+    )
+
+    if performance_info:
+
+        st.caption(
+            f"⚡ {performance_info}"
+        )
+
+    st.divider()
+
+    st.subheader(
+        "👤 Student Details"
+    )
+
+    st.write(
+        f"**Name:** {student_name}"
+    )
+
+    st.write(
+        f"**Register Number:** {register_number}"
+    )
+
+    st.divider()
+
+    st.subheader(
+        "🎫 Ticket Details"
+    )
+
+    st.write(
+        f"**Ticket ID:** {ticket_id}"
+    )
+
+    st.write(
+        f"**Issue:** "
+        f"{ticket_data['issue_title']}"
+    )
+
+    st.write(
+        f"**Category:** "
+        f"{ticket_data['issue_category']}"
+    )
+
+    st.write(
+        f"**Severity:** "
+        f"{ticket_data['severity']}"
+    )
+
+    st.write(
+        f"**Created:** {created_datetime}"
+    )
+
+    st.write(
+        f"**Ticket Directed To:** "
+        f"{ticket_data['assigned_department']}"
+    )
+
+    st.info(
+        "Please save your Ticket ID to track "
+        "future updates."
+    )
 
 
 # ==================================================
@@ -170,9 +490,10 @@ st.subheader(
 )
 
 st.write(
-    "Report campus maintenance issues using images and AI. "
-    "CampusFix analyzes the issue, generates maintenance tickets, "
-    "checks severity, and allows students to track ticket updates."
+    "Report campus maintenance issues using images and "
+    "intelligent issue analysis. CampusFix creates maintenance "
+    "tickets and allows students and administrators to track "
+    "their progress."
 )
 
 st.divider()
@@ -196,9 +517,13 @@ report_tab, track_tab, admin_tab, bot_tab = st.tabs([
 
 with report_tab:
 
-    st.header("Report a Maintenance Issue")
+    st.header(
+        "Report a Maintenance Issue"
+    )
 
-    st.subheader("👤 Student Details")
+    st.subheader(
+        "👤 Student Details"
+    )
 
     student_name = st.text_input(
         "Student Name",
@@ -214,7 +539,9 @@ with report_tab:
 
     st.divider()
 
-    st.subheader("🎫 Issue Details")
+    st.subheader(
+        "🎫 Issue Details"
+    )
 
     location = st.selectbox(
         "Select Building / Location",
@@ -231,8 +558,8 @@ with report_tab:
     student_description = st.text_area(
         "Describe the Issue",
         placeholder=(
-            "Example: The ceiling fan is shaking and making "
-            "a loud noise."
+            "Example: The ceiling fan is shaking "
+            "and making a loud noise."
         ),
         key="report_description"
     )
@@ -272,246 +599,50 @@ with report_tab:
         elif uploaded_image is None:
 
             st.error(
-                "Please upload an image of the maintenance issue."
+                "Please upload an image of the "
+                "maintenance issue."
             )
 
         else:
 
-            image_path = "temp_issue_image.jpg"
-
             try:
 
                 with st.spinner(
-                    "CampusFix AI is analyzing the maintenance issue..."
+                    "Creating your maintenance ticket..."
                 ):
 
-                    with open(
-                        image_path,
-                        "wb"
-                    ) as file:
-
-                        file.write(
-                            uploaded_image.getbuffer()
+                    ticket_id, result, performance_info = (
+                        create_maintenance_ticket(
+                            student_name,
+                            register_number,
+                            location,
+                            room,
+                            student_description,
+                            uploaded_image,
+                            "ticket"
                         )
-
-                    # ------------------------------------------
-                    # IMAGE ANALYSIS
-                    # ------------------------------------------
-
-                    vision_result = analyze_issue_image(
-                        image_path,
-                        student_description
                     )
 
-                    if str(vision_result).startswith("Error"):
+                if ticket_id is None:
 
-                        st.error(
-                            vision_result
-                        )
+                    st.error(result)
 
-                    else:
+                else:
 
-                        # --------------------------------------
-                        # TICKET GENERATION
-                        # --------------------------------------
-
-                        ticket_result = generate_ticket(
-                            vision_analysis=vision_result,
-                            location=location,
-                            room=room,
-                            user_description=student_description
-                        )
-
-                        if str(ticket_result).startswith("Error"):
-
-                            st.error(
-                                ticket_result
-                            )
-
-                        else:
-
-                            ticket_data = parse_ticket_result(
-                                ticket_result
-                            )
-
-                            # ----------------------------------
-                            # SAFETY / SEVERITY CHECK
-                            # ----------------------------------
-
-                            safety_result = check_safety(
-                                ticket_result
-                            )
-
-                            if isinstance(
-                                safety_result,
-                                dict
-                            ):
-
-                                severity = safety_result.get(
-                                    "severity",
-                                    ticket_data.get(
-                                        "severity",
-                                        "Normal"
-                                    )
-                                )
-
-                                assigned_department = (
-                                    safety_result.get(
-                                        "assigned_department",
-                                        ticket_data.get(
-                                            "assigned department",
-                                            "General Maintenance"
-                                        )
-                                    )
-                                )
-
-                            else:
-
-                                severity = ticket_data.get(
-                                    "severity",
-                                    "Normal"
-                                )
-
-                                assigned_department = (
-                                    ticket_data.get(
-                                        "assigned department",
-                                        "General Maintenance"
-                                    )
-                                )
-
-                            # ----------------------------------
-                            # DATABASE TICKET
-                            # ----------------------------------
-
-                            database_ticket = {
-
-                                "student_name": (
-                                    student_name.strip()
-                                ),
-
-                                "register_number": (
-                                    register_number.strip()
-                                ),
-
-                                "issue_category": (
-                                    ticket_data.get(
-                                        "issue category",
-                                        "General Maintenance"
-                                    )
-                                ),
-
-                                "issue_title": (
-                                    ticket_data.get(
-                                        "issue title",
-                                        "Maintenance Issue"
-                                    )
-                                ),
-
-                                "severity": severity,
-
-                                "description": (
-                                    ticket_data.get(
-                                        "description",
-                                        student_description
-                                    )
-                                ),
-
-                                "recommended_action": (
-                                    ticket_data.get(
-                                        "recommended action",
-                                        "Maintenance inspection required"
-                                    )
-                                ),
-
-                                "assigned_department": (
-                                    assigned_department
-                                ),
-
-                                "location": location,
-
-                                "room": room,
-
-                                "student_description": (
-                                    student_description
-                                ),
-
-                                "escalation": (
-                                    assigned_department
-                                )
-                            }
-
-                            ticket_id = save_ticket(
-                                database_ticket
-                            )
-
-                            created_date = datetime.now().strftime(
-                                "%d %b %Y"
-                            )
-
-                            st.success(
-                                "Maintenance ticket created successfully!"
-                            )
-
-                            st.divider()
-
-                            st.subheader("👤 Student Details")
-
-                            st.write(
-                                f"**Name:** {student_name}"
-                            )
-
-                            st.write(
-                                f"**Register Number:** "
-                                f"{register_number}"
-                            )
-
-                            st.divider()
-
-                            st.subheader("🎫 Ticket Details")
-
-                            st.write(
-                                f"**Ticket ID:** {ticket_id}"
-                            )
-
-                            st.write(
-                                f"**Issue:** "
-                                f"{database_ticket['issue_title']}"
-                            )
-
-                            st.write(
-                                f"**Category:** "
-                                f"{database_ticket['issue_category']}"
-                            )
-
-                            st.write(
-                                f"**Severity:** {severity}"
-                            )
-
-                            st.write(
-                                f"**Created:** {created_date}"
-                            )
-
-                            st.write(
-                                f"**Ticket Directed To:** "
-                                f"{assigned_department}"
-                            )
-
-                            st.info(
-                                "Please save your Ticket ID to track "
-                                "future updates."
-                            )
+                    display_created_ticket(
+                        ticket_id,
+                        result,
+                        student_name,
+                        register_number,
+                        performance_info
+                    )
 
             except Exception as error:
 
                 st.error(
-                    f"Unable to process the maintenance issue: {error}"
+                    f"Unable to process the maintenance "
+                    f"issue: {error}"
                 )
-
-            finally:
-
-                if os.path.exists(image_path):
-
-                    os.remove(image_path)
 
 
 # ==================================================
@@ -520,11 +651,13 @@ with report_tab:
 
 with track_tab:
 
-    st.header("🔎 Track Your Maintenance Ticket")
+    st.header(
+        "🔎 Track Your Maintenance Ticket"
+    )
 
     st.write(
-        "Enter your Ticket ID to view its current status "
-        "and update history."
+        "Enter your Ticket ID to view its current "
+        "status and update history."
     )
 
     ticket_id_input = st.number_input(
@@ -555,8 +688,10 @@ with track_tab:
 
             else:
 
-                created_date = format_ticket_date(
-                    ticket["created_at"]
+                created_datetime = (
+                    format_ticket_datetime(
+                        ticket["created_at"]
+                    )
                 )
 
                 st.success(
@@ -582,7 +717,9 @@ with track_tab:
 
                 st.divider()
 
-                st.subheader("👤 Student Details")
+                st.subheader(
+                    "👤 Student Details"
+                )
 
                 st.write(
                     f"**Name:** {ticket['student_name']}"
@@ -595,7 +732,9 @@ with track_tab:
 
                 st.divider()
 
-                st.subheader("🎫 Ticket Details")
+                st.subheader(
+                    "🎫 Ticket Details"
+                )
 
                 st.write(
                     f"**Issue:** {ticket['issue_title']}"
@@ -607,7 +746,26 @@ with track_tab:
                 )
 
                 st.write(
-                    f"**Created:** {created_date}"
+                    f"**Building:** {ticket['location']}"
+                )
+
+                st.write(
+                    f"**Room / Exact Location:** "
+                    f"{ticket['room']}"
+                )
+
+                st.write(
+                    f"**Description:** "
+                    f"{ticket['description']}"
+                )
+
+                st.write(
+                    f"**Recommended Action:** "
+                    f"{ticket['recommended_action']}"
+                )
+
+                st.write(
+                    f"**Created:** {created_datetime}"
                 )
 
                 st.write(
@@ -617,7 +775,13 @@ with track_tab:
 
                 st.divider()
 
-                st.subheader("📜 Update History")
+                display_ticket_image(ticket)
+
+                st.divider()
+
+                st.subheader(
+                    "📜 Update History"
+                )
 
                 updates = get_ticket_updates(
                     ticket["ticket_id"]
@@ -626,7 +790,8 @@ with track_tab:
                 if len(updates) == 0:
 
                     st.info(
-                        "There are no updates for this ticket yet."
+                        "There are no updates for this "
+                        "ticket yet."
                     )
 
                 else:
@@ -635,8 +800,10 @@ with track_tab:
 
                         with st.container(border=True):
 
-                            updated_date = format_ticket_date(
-                                update["updated_at"]
+                            updated_datetime = (
+                                format_ticket_datetime(
+                                    update["updated_at"]
+                                )
                             )
 
                             st.write(
@@ -652,7 +819,8 @@ with track_tab:
                                 )
 
                             st.write(
-                                f"**Updated:** {updated_date}"
+                                f"**Updated:** "
+                                f"{updated_datetime}"
                             )
 
         except Exception as error:
@@ -668,7 +836,9 @@ with track_tab:
 
 with admin_tab:
 
-    st.header("🛠️ CampusFix Admin Dashboard")
+    st.header(
+        "🛠️ CampusFix Admin Dashboard"
+    )
 
     st.write(
         "View, manage, and update all maintenance tickets."
@@ -681,17 +851,20 @@ with admin_tab:
         total_tickets = len(tickets)
 
         open_tickets = sum(
-            1 for ticket in tickets
+            1
+            for ticket in tickets
             if ticket["status"] == "Open"
         )
 
         in_progress_tickets = sum(
-            1 for ticket in tickets
+            1
+            for ticket in tickets
             if ticket["status"] == "In Progress"
         )
 
         resolved_tickets = sum(
-            1 for ticket in tickets
+            1
+            for ticket in tickets
             if ticket["status"] == "Resolved"
         )
 
@@ -722,7 +895,8 @@ with admin_tab:
         if total_tickets == 0:
 
             st.info(
-                "No maintenance tickets have been created yet."
+                "No maintenance tickets have been "
+                "created yet."
             )
 
         else:
@@ -735,8 +909,10 @@ with admin_tab:
 
                 ticket_id = ticket["ticket_id"]
 
-                created_date = format_ticket_date(
-                    ticket["created_at"]
+                created_datetime = (
+                    format_ticket_datetime(
+                        ticket["created_at"]
+                    )
                 )
 
                 with st.expander(
@@ -745,11 +921,9 @@ with admin_tab:
                     f"({ticket['status']})"
                 ):
 
-                    # ------------------------------
-                    # STUDENT DETAILS
-                    # ------------------------------
-
-                    st.subheader("👤 Student Details")
+                    st.subheader(
+                        "👤 Student Details"
+                    )
 
                     st.write(
                         f"**Name:** "
@@ -763,11 +937,9 @@ with admin_tab:
 
                     st.divider()
 
-                    # ------------------------------
-                    # TICKET DETAILS
-                    # ------------------------------
-
-                    st.subheader("🎫 Ticket Details")
+                    st.subheader(
+                        "🎫 Ticket Details"
+                    )
 
                     st.write(
                         f"**Ticket ID:** {ticket_id}"
@@ -820,19 +992,14 @@ with admin_tab:
 
                     st.write(
                         f"**Created:** "
-                        f"{created_date}"
+                        f"{created_datetime}"
                     )
-
-                    # IMPORTANT:
-                    # safety_risk has been completely removed.
-                    # There must be NO reference to:
-                    # ticket["safety_risk"]
 
                     st.divider()
 
-                    # ------------------------------
-                    # UPDATE TICKET
-                    # ------------------------------
+                    display_ticket_image(ticket)
+
+                    st.divider()
 
                     st.subheader(
                         "Update Ticket"
@@ -866,8 +1033,9 @@ with admin_tab:
                     remarks = st.text_area(
                         "Admin Remarks",
                         placeholder=(
-                            "Example: Technician inspected the "
-                            "issue. Work is currently in progress."
+                            "Example: Technician inspected "
+                            "the issue. Work is currently "
+                            "in progress."
                         ),
                         key=f"remarks_{ticket_id}"
                     )
@@ -881,8 +1049,8 @@ with admin_tab:
                         if not remarks.strip():
 
                             st.warning(
-                                "Please enter remarks before saving "
-                                "the update."
+                                "Please enter remarks before "
+                                "saving the update."
                             )
 
                         else:
@@ -923,11 +1091,14 @@ with admin_tab:
 
 with bot_tab:
 
-    st.header("🤖 CampusFix Assistant")
+    st.header(
+        "🤖 CampusFix Assistant"
+    )
 
     st.write(
-        "I can help you report a new maintenance issue, "
-        "track an existing ticket, or explain how CampusFix works."
+        "I can help you report a maintenance issue, "
+        "track an existing ticket, or explain how "
+        "CampusFix works."
     )
 
     st.divider()
@@ -943,9 +1114,9 @@ with bot_tab:
     )
 
 
-    # ==================================================
+    # ==============================================
     # BOT - REPORT NEW ISSUE
-    # ==================================================
+    # ==============================================
 
     if bot_option == "📝 Report New Issue":
 
@@ -953,26 +1124,14 @@ with bot_tab:
             "🤖 Let's report your maintenance issue"
         )
 
-        st.write(
-            "**Step 1 of 8 — Enter your full name.**"
-        )
-
         bot_student_name = st.text_input(
             "Student Name",
             key="bot_student_name"
         )
 
-        st.write(
-            "**Step 2 of 8 — Enter your register number.**"
-        )
-
         bot_register_number = st.text_input(
             "Register Number",
             key="bot_register_number"
-        )
-
-        st.write(
-            "**Step 3 of 8 — Select the building or location.**"
         )
 
         bot_location = st.selectbox(
@@ -981,31 +1140,19 @@ with bot_tab:
             key="bot_location"
         )
 
-        st.write(
-            "**Step 4 of 8 — Select the room or exact location.**"
-        )
-
         bot_room = st.selectbox(
             "Select Room / Exact Location",
             options=CAMPUS_LOCATIONS[bot_location],
             key="bot_room"
         )
 
-        st.write(
-            "**Step 5 of 8 — Describe the issue.**"
-        )
-
         bot_description = st.text_area(
             "Describe what is wrong",
             placeholder=(
-                "Example: The ceiling fan is shaking and making "
-                "a loud noise."
+                "Example: The ceiling fan is shaking "
+                "and making a loud noise."
             ),
             key="bot_description"
-        )
-
-        st.write(
-            "**Step 6 of 8 — Upload an image of the issue.**"
         )
 
         bot_uploaded_image = st.file_uploader(
@@ -1018,12 +1165,14 @@ with bot_tab:
 
             st.image(
                 bot_uploaded_image,
-                caption="Image received by CampusFix Assistant",
+                caption=(
+                    "Image received by CampusFix Assistant"
+                ),
                 use_container_width=True
             )
 
         if st.button(
-            "🤖 Analyze Issue and Create Ticket",
+            "🤖 Create My Ticket",
             type="primary",
             key="bot_create_ticket"
         ):
@@ -1043,285 +1192,64 @@ with bot_tab:
             elif bot_uploaded_image is None:
 
                 st.error(
-                    "🤖 Please upload an image so I can analyze "
-                    "the maintenance issue."
+                    "🤖 Please upload an image of the "
+                    "maintenance issue."
                 )
 
             else:
 
-                bot_image_path = (
-                    "temp_bot_issue_image.jpg"
-                )
-
                 try:
 
                     with st.spinner(
-                        "🤖 CampusFix Assistant is analyzing "
-                        "your maintenance issue..."
+                        "🤖 Creating your maintenance ticket..."
                     ):
 
-                        with open(
-                            bot_image_path,
-                            "wb"
-                        ) as file:
-
-                            file.write(
-                                bot_uploaded_image.getbuffer()
-                            )
-
-                        vision_result = analyze_issue_image(
-                            bot_image_path,
-                            bot_description
+                        (
+                            bot_ticket_id,
+                            result,
+                            performance_info
+                        ) = create_maintenance_ticket(
+                            bot_student_name,
+                            bot_register_number,
+                            bot_location,
+                            bot_room,
+                            bot_description,
+                            bot_uploaded_image,
+                            "bot_ticket"
                         )
 
-                        if str(
-                            vision_result
-                        ).startswith("Error"):
+                    if bot_ticket_id is None:
 
-                            st.error(
-                                vision_result
-                            )
+                        st.error(
+                            f"🤖 {result}"
+                        )
 
-                        else:
+                    else:
 
-                            ticket_result = generate_ticket(
-                                vision_analysis=vision_result,
-                                location=bot_location,
-                                room=bot_room,
-                                user_description=bot_description
-                            )
-
-                            if str(
-                                ticket_result
-                            ).startswith("Error"):
-
-                                st.error(
-                                    ticket_result
-                                )
-
-                            else:
-
-                                ticket_data = (
-                                    parse_ticket_result(
-                                        ticket_result
-                                    )
-                                )
-
-                                safety_result = (
-                                    check_safety(
-                                        ticket_result
-                                    )
-                                )
-
-                                if isinstance(
-                                    safety_result,
-                                    dict
-                                ):
-
-                                    bot_severity = (
-                                        safety_result.get(
-                                            "severity",
-                                            ticket_data.get(
-                                                "severity",
-                                                "Normal"
-                                            )
-                                        )
-                                    )
-
-                                    bot_assigned_department = (
-                                        safety_result.get(
-                                            "assigned_department",
-                                            ticket_data.get(
-                                                "assigned department",
-                                                "General Maintenance"
-                                            )
-                                        )
-                                    )
-
-                                else:
-
-                                    bot_severity = (
-                                        ticket_data.get(
-                                            "severity",
-                                            "Normal"
-                                        )
-                                    )
-
-                                    bot_assigned_department = (
-                                        ticket_data.get(
-                                            "assigned department",
-                                            "General Maintenance"
-                                        )
-                                    )
-
-                                database_ticket = {
-
-                                    "student_name": (
-                                        bot_student_name.strip()
-                                    ),
-
-                                    "register_number": (
-                                        bot_register_number.strip()
-                                    ),
-
-                                    "issue_category": (
-                                        ticket_data.get(
-                                            "issue category",
-                                            "General Maintenance"
-                                        )
-                                    ),
-
-                                    "issue_title": (
-                                        ticket_data.get(
-                                            "issue title",
-                                            "Maintenance Issue"
-                                        )
-                                    ),
-
-                                    "severity": (
-                                        bot_severity
-                                    ),
-
-                                    "description": (
-                                        ticket_data.get(
-                                            "description",
-                                            bot_description
-                                        )
-                                    ),
-
-                                    "recommended_action": (
-                                        ticket_data.get(
-                                            "recommended action",
-                                            "Maintenance inspection "
-                                            "required"
-                                        )
-                                    ),
-
-                                    "assigned_department": (
-                                        bot_assigned_department
-                                    ),
-
-                                    "location": (
-                                        bot_location
-                                    ),
-
-                                    "room": (
-                                        bot_room
-                                    ),
-
-                                    "student_description": (
-                                        bot_description
-                                    ),
-
-                                    "escalation": (
-                                        bot_assigned_department
-                                    )
-                                }
-
-                                bot_ticket_id = save_ticket(
-                                    database_ticket
-                                )
-
-                                created_date = (
-                                    datetime.now().strftime(
-                                        "%d %b %Y"
-                                    )
-                                )
-
-                                st.success(
-                                    "🤖 Your maintenance ticket has "
-                                    "been created successfully!"
-                                )
-
-                                st.divider()
-
-                                st.subheader(
-                                    "👤 Student Details"
-                                )
-
-                                st.write(
-                                    f"**Name:** "
-                                    f"{bot_student_name}"
-                                )
-
-                                st.write(
-                                    f"**Register Number:** "
-                                    f"{bot_register_number}"
-                                )
-
-                                st.divider()
-
-                                st.subheader(
-                                    "🎫 Ticket Details"
-                                )
-
-                                st.write(
-                                    f"**Ticket ID:** "
-                                    f"{bot_ticket_id}"
-                                )
-
-                                st.write(
-                                    f"**Issue:** "
-                                    f"{database_ticket['issue_title']}"
-                                )
-
-                                st.write(
-                                    f"**Category:** "
-                                    f"{database_ticket['issue_category']}"
-                                )
-
-                                st.write(
-                                    f"**Severity:** "
-                                    f"{bot_severity}"
-                                )
-
-                                st.write(
-                                    f"**Created:** "
-                                    f"{created_date}"
-                                )
-
-                                st.write(
-                                    f"**Ticket Directed To:** "
-                                    f"{bot_assigned_department}"
-                                )
-
-                                st.info(
-                                    "🤖 Please save your Ticket ID. "
-                                    "You can use it later to track "
-                                    "the maintenance status."
-                                )
+                        display_created_ticket(
+                            bot_ticket_id,
+                            result,
+                            bot_student_name,
+                            bot_register_number,
+                            performance_info
+                        )
 
                 except Exception as error:
 
                     st.error(
-                        f"🤖 I was unable to process the issue: "
-                        f"{error}"
+                        f"🤖 I was unable to process the "
+                        f"issue: {error}"
                     )
 
-                finally:
 
-                    if os.path.exists(
-                        bot_image_path
-                    ):
-
-                        os.remove(
-                            bot_image_path
-                        )
-
-
-    # ==================================================
+    # ==============================================
     # BOT - TRACK TICKET
-    # ==================================================
+    # ==============================================
 
     elif bot_option == "🔎 Track My Ticket":
 
         st.subheader(
             "🤖 Let's track your maintenance ticket"
-        )
-
-        st.write(
-            "Please enter the Ticket ID you received when "
-            "your issue was created."
         )
 
         bot_track_id = st.number_input(
@@ -1348,46 +1276,14 @@ with bot_tab:
 
                     st.error(
                         f"🤖 I could not find Ticket "
-                        f"#{bot_track_id}. Please check the "
-                        "Ticket ID and try again."
+                        f"#{bot_track_id}."
                     )
 
                 else:
 
-                    created_date = format_ticket_date(
-                        ticket["created_at"]
-                    )
-
                     st.success(
                         f"🤖 I found your Ticket "
                         f"#{ticket['ticket_id']}!"
-                    )
-
-                    st.divider()
-
-                    st.subheader(
-                        "👤 Student Details"
-                    )
-
-                    st.write(
-                        f"**Name:** "
-                        f"{ticket['student_name']}"
-                    )
-
-                    st.write(
-                        f"**Register Number:** "
-                        f"{ticket['register_number']}"
-                    )
-
-                    st.divider()
-
-                    st.subheader(
-                        "🎫 Ticket Details"
-                    )
-
-                    st.write(
-                        f"**Ticket ID:** "
-                        f"{ticket['ticket_id']}"
                     )
 
                     st.write(
@@ -1411,13 +1307,24 @@ with bot_tab:
                     )
 
                     st.write(
-                        f"**Created:** "
-                        f"{created_date}"
+                        f"**Description:** "
+                        f"{ticket['description']}"
+                    )
+
+                    st.write(
+                        f"**Recommended Action:** "
+                        f"{ticket['recommended_action']}"
                     )
 
                     st.write(
                         f"**Ticket Directed To:** "
                         f"{ticket['assigned_department']}"
+                    )
+
+                    display_ticket_image(ticket)
+
+                    updates = get_ticket_updates(
+                        ticket["ticket_id"]
                     )
 
                     st.divider()
@@ -1426,31 +1333,18 @@ with bot_tab:
                         "🤖 Latest Updates"
                     )
 
-                    updates = get_ticket_updates(
-                        ticket["ticket_id"]
-                    )
-
                     if len(updates) == 0:
 
                         st.info(
-                            "🤖 There are currently no admin "
-                            "updates. Your ticket is still being "
-                            "processed."
+                            "🤖 There are no admin updates "
+                            "for this ticket yet."
                         )
 
                     else:
 
                         for update in updates:
 
-                            with st.container(
-                                border=True
-                            ):
-
-                                updated_date = (
-                                    format_ticket_date(
-                                        update["updated_at"]
-                                    )
-                                )
+                            with st.container(border=True):
 
                                 st.write(
                                     f"**Status:** "
@@ -1466,20 +1360,20 @@ with bot_tab:
 
                                 st.write(
                                     f"**Updated:** "
-                                    f"{updated_date}"
+                                    f"{format_ticket_datetime(update['updated_at'])}"
                                 )
 
             except Exception as error:
 
                 st.error(
-                    f"🤖 I was unable to retrieve your ticket: "
+                    f"🤖 Unable to retrieve your ticket: "
                     f"{error}"
                 )
 
 
-    # ==================================================
+    # ==============================================
     # BOT - HELP & GUIDE
-    # ==================================================
+    # ==============================================
 
     elif bot_option == "ℹ️ Help & Guide":
 
@@ -1489,7 +1383,7 @@ with bot_tab:
 
         st.write(
             "CampusFix helps students report and track "
-            "campus maintenance problems."
+            "campus maintenance problems quickly."
         )
 
         st.divider()
@@ -1499,14 +1393,13 @@ with bot_tab:
         )
 
         st.write(
-            "Enter your name and register number, select the "
-            "building and room, upload an image, and describe "
-            "the problem."
+            "Enter your details, select the location, "
+            "describe the problem, and upload an image."
         )
 
         st.write(
-            "The local AI analyzes the image and generates a "
-            "maintenance ticket."
+            "CampusFix quickly analyzes the reported "
+            "information and creates a maintenance ticket."
         )
 
         st.divider()
@@ -1516,9 +1409,8 @@ with bot_tab:
         )
 
         st.write(
-            "Use the Ticket ID received after creating an issue "
-            "to check the current status and administrator "
-            "updates."
+            "Use your Ticket ID to check its status "
+            "and administrator updates."
         )
 
         st.divider()
@@ -1528,21 +1420,16 @@ with bot_tab:
         )
 
         st.write(
-            "Campus administrators can view every submitted "
-            "ticket from the Admin Dashboard."
-        )
-
-        st.write(
-            "They can change the ticket status to Open, "
+            "Administrators can update tickets as Open, "
             "In Progress, or Resolved and add remarks."
         )
 
         st.write(
-            "Students can later see these updates using their "
-            "Ticket ID."
+            "You can view these updates later using "
+            "your Ticket ID."
         )
 
         st.info(
-            "Tip: Always save your Ticket ID after successfully "
+            "Tip: Always save your Ticket ID after "
             "creating a maintenance ticket."
         )
