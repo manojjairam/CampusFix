@@ -2,9 +2,11 @@
 
 ## AI-Powered University Maintenance Issue Reporting System
 
-CampusFix is a fully local AI-powered university maintenance management system designed to help students report campus infrastructure and maintenance issues efficiently. Students can submit an image and description of an issue, after which local AI models analyze the problem and generate a structured maintenance ticket that can be tracked and managed by administrators.
+CampusFix is a fully local AI-powered university maintenance issue reporting system designed to help students report campus infrastructure and maintenance problems efficiently.
 
-The system combines image understanding, local language models, a Streamlit web application, Telegram integration, and SQLite database management into a single workflow without relying on cloud AI APIs.
+Students can submit an image and description of an issue. Local AI models analyze the problem and generate a structured maintenance ticket. The ticket is stored in a local SQLite database, where students can track its progress and administrators can manage and update it.
+
+The system combines local image understanding, a local language model, a Streamlit web application, Telegram integration, and SQLite database management into a single workflow without relying on cloud AI APIs.
 
 ---
 
@@ -18,7 +20,7 @@ Universities and colleges often handle maintenance complaints manually through p
 * Students may not receive updates about ticket progress.
 * Important maintenance problems may be delayed or forgotten.
 
-CampusFix addresses this problem by providing an AI-assisted maintenance reporting system where students can submit a photograph and description of an issue. The system analyzes the information, creates a structured maintenance ticket, routes it to the appropriate department, and allows both students and administrators to track ticket progress.
+CampusFix addresses this problem by providing an AI-assisted maintenance reporting system where students can submit a photograph and description of an issue. The system analyzes the available information, creates a structured maintenance ticket, routes it to the appropriate department, and allows both students and administrators to track ticket progress.
 
 ---
 
@@ -28,7 +30,7 @@ CampusFix addresses this problem by providing an AI-assisted maintenance reporti
 
 * Report a new maintenance issue.
 * Enter student name and register number.
-* Select campus building and exact location.
+* Select a campus building and exact location.
 * Upload an image of the maintenance problem.
 * Provide a description of the issue.
 * Receive an automatically generated Ticket ID.
@@ -39,7 +41,7 @@ CampusFix addresses this problem by providing an AI-assisted maintenance reporti
 ## AI Features
 
 * Local image analysis using LLaVA through Ollama.
-* Identification of visible maintenance issues and affected areas.
+* Analysis of visible maintenance issues and affected areas.
 * Structured image analysis with confidence information.
 * Local ticket generation using Llama 3.2 through Ollama.
 * Automatic generation of:
@@ -78,8 +80,6 @@ CampusFix addresses this problem by providing an AI-assisted maintenance reporti
 
 # System Workflow
 
-The CampusFix workflow is:
-
 ```text
 Student
    │
@@ -108,7 +108,7 @@ SQLite Database
    └──────────────► Telegram Bot
 ```
 
-### Step-by-Step Flow
+## Step-by-Step Flow
 
 1. A student uploads an image of a maintenance issue.
 2. The student provides a description of the problem.
@@ -129,7 +129,7 @@ CampusFix follows a modular architecture.
 
 ```text
                     ┌──────────────────────┐
-                    │      STUDENT         │
+                    │       STUDENT        │
                     │ Streamlit / Telegram │
                     └──────────┬───────────┘
                                │
@@ -140,14 +140,14 @@ CampusFix follows a modular architecture.
                                │
                                ▼
                     ┌──────────────────────┐
-                    │  LLaVA via Ollama    │
+                    │   LLaVA via Ollama   │
                     │ Local Vision Analysis│
                     └──────────┬───────────┘
                                │
                                ▼
                     ┌──────────────────────┐
                     │ Llama 3.2 via Ollama │
-                    │ Ticket Generation    │
+                    │  Ticket Generation   │
                     └──────────┬───────────┘
                                │
                                ▼
@@ -157,24 +157,24 @@ CampusFix follows a modular architecture.
                     └───────┬───────┬──────┘
                             │       │
                  ┌──────────▼─┐   ┌─▼──────────────┐
-                 │ Streamlit  │   │ Telegram Bot   │
-                 │ Dashboard  │   │ Tracking       │
+                 │ Streamlit  │   │  Telegram Bot  │
+                 │ Dashboard  │   │ Ticket Tracking│
                  └────────────┘   └────────────────┘
                             │
                             ▼
                     ┌──────────────────────┐
-                    │ Admin Management    │
-                    │ Status + Remarks    │
+                    │  Admin Management    │
+                    │ Status + Remarks     │
                     └──────────────────────┘
 ```
 
-A visual architecture diagram can also be stored at:
+A visual architecture diagram is included in:
 
 ```text
 docs/architecture.png
 ```
 
-The workflow diagram can be stored at:
+The workflow diagram is included in:
 
 ```text
 docs/workflow.png
@@ -199,7 +199,6 @@ CampusFix/
 │   ├── __init__.py
 │   ├── vision_analyzer.py
 │   ├── ticket_generator.py
-│   ├── safety_checker.py
 │   └── database.py
 │
 ├── assets/
@@ -239,7 +238,7 @@ CampusFix/
 
 # Local AI Models
 
-CampusFix uses local models through Ollama.
+CampusFix uses local AI models through Ollama.
 
 ## Vision Model
 
@@ -247,7 +246,7 @@ CampusFix uses local models through Ollama.
 llava:latest
 ```
 
-The model analyzes the uploaded maintenance issue image.
+The LLaVA model analyzes the uploaded maintenance issue image and identifies visible maintenance-related problems.
 
 ## Text Model
 
@@ -255,9 +254,9 @@ The model analyzes the uploaded maintenance issue image.
 llama3.2:3b
 ```
 
-The model generates the structured maintenance ticket.
+The Llama 3.2 model uses the image analysis, student description, and location information to generate a structured maintenance ticket.
 
-No OpenAI, Gemini, Claude, or other cloud AI API is required for the AI workflow.
+No OpenAI, Gemini, Claude, or other cloud AI API is required for the core AI workflow.
 
 ---
 
@@ -266,19 +265,19 @@ No OpenAI, Gemini, Claude, or other cloud AI API is required for the AI workflow
 ## 1. Clone the Repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/manojjairam/CampusFix.git
 cd CampusFix
 ```
 
 ## 2. Create a Virtual Environment
 
-Windows PowerShell:
+For Windows PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv
 ```
 
-Activate it:
+Activate the virtual environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -294,9 +293,9 @@ pip install -r requirements.txt
 
 # Install Ollama
 
-Install Ollama on the local machine.
+Install Ollama on your local machine.
 
-After installation, verify it:
+After installation, verify it using:
 
 ```powershell
 ollama --version
@@ -306,19 +305,19 @@ ollama --version
 
 # Download Required Local Models
 
-Download the text model:
+Download the local text model:
 
 ```powershell
 ollama pull llama3.2:3b
 ```
 
-Download the vision model:
+Download the local vision model:
 
 ```powershell
 ollama pull llava:latest
 ```
 
-Verify the models:
+Verify that the models are available:
 
 ```powershell
 ollama list
@@ -343,19 +342,19 @@ Activate the virtual environment:
 .\.venv\Scripts\Activate.ps1
 ```
 
-Run:
+Run the application:
 
 ```powershell
 streamlit run app.py
 ```
 
-The application will open locally in the browser.
+The application will open locally in your browser.
 
 ---
 
 ## Start the Telegram Bot
 
-Open another terminal in the CampusFix directory.
+Open another terminal inside the CampusFix project directory.
 
 Activate the virtual environment:
 
@@ -369,7 +368,7 @@ Run:
 python telegram_bot.py
 ```
 
-The Telegram bot and Streamlit application can access the same SQLite database.
+The Telegram bot and Streamlit application use the same local SQLite database.
 
 ---
 
@@ -438,13 +437,13 @@ The database is stored locally inside the `data/` directory.
 
 # Screenshots
 
-Project screenshots should be placed inside:
+Project screenshots are stored inside:
 
 ```text
 docs/screenshots/
 ```
 
-Recommended screenshots:
+The screenshots demonstrate important parts of the application, including:
 
 1. Student issue reporting page.
 2. AI-generated ticket confirmation.
@@ -458,21 +457,21 @@ Recommended screenshots:
 
 # Demo Video
 
-The project demonstration video should be stored at:
+The project demonstration video is stored at:
 
 ```text
 demo/demo.mp4
 ```
 
-The demo should show:
+The demo demonstrates:
 
 1. Starting the Streamlit application.
 2. Reporting a maintenance issue.
 3. Uploading an image.
 4. Entering an issue description.
-5. Local AI image analysis.
-6. Local AI ticket generation.
-7. Ticket creation.
+5. Local AI image analysis using LLaVA.
+6. Local AI ticket generation using Llama 3.2.
+7. Ticket creation and storage.
 8. Viewing the ticket in the Admin Dashboard.
 9. Updating the ticket status.
 10. Tracking the updated ticket.
@@ -482,12 +481,14 @@ The demo should show:
 
 # Privacy and Local Processing
 
-CampusFix is designed with local AI processing in mind.
+CampusFix is designed with local AI processing.
 
 * LLaVA runs locally through Ollama.
 * Llama 3.2 runs locally through Ollama.
 * Ticket information is stored in a local SQLite database.
 * No cloud AI API is required for the core AI workflow.
+
+This allows the project to run on a local machine while keeping the AI processing and ticket data within the local environment.
 
 ---
 
@@ -502,7 +503,7 @@ Possible future improvements include:
 * Analytics and reporting dashboard.
 * Email notifications.
 * Campus maintenance statistics.
-* Improved object detection models.
+* Improved computer vision and object detection models.
 * Authentication and role-based access.
 * Mobile application integration.
 
@@ -510,25 +511,25 @@ Possible future improvements include:
 
 # Demo
 
-The complete project demonstrates a university-focused AI application that combines:
+CampusFix demonstrates a university-focused AI application with the following workflow:
 
 ```text
 Image Input
-     +
+    +
 Student Description
-     ↓
+    ↓
 Local Vision AI
-     ↓
+    ↓
 Local Language Model
-     ↓
+    ↓
 Structured Maintenance Ticket
-     ↓
+    ↓
 SQLite Storage
-     ↓
+    ↓
 Admin Management
-     ↓
+    ↓
 Student Tracking
-     +
+    +
 Telegram Integration
 ```
 
@@ -537,6 +538,8 @@ Telegram Integration
 # Author
 
 Developed as an academic project for an AI-powered university maintenance issue reporting system.
+
+---
 
 # License
 
