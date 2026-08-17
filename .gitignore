@@ -1,0 +1,39 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables and secrets
+.env
+
+# Database
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Temporary uploaded images
+data/telegram_issue_*.jpg
+temp_issue_image.jpg
+temp_bot_issue_image.jpg
+
+# Generated outputs
+outputs/*
+!outputs/.gitkeep
+
+# Model files
+models/*
+!models/.gitkeep
+
+# Demo files
+demo/*.mp4
+
+# IDE
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
