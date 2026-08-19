@@ -115,40 +115,20 @@ SQLite Database
 
 # Architecture
 
-CampusFix follows a modular architecture.
+CampusFix follows a modular architecture that connects student interfaces, local AI models, and the maintenance ticket management system.
 
-STUDENT
-(Streamlit / Telegram)
-↓
-IMAGE INPUT
-(Student Details + Location)
-↓
-LOCAL VISION MODEL VIA OLLAMA
-(Image Issue Analysis)
-↓
-LOCAL LANGUAGE MODEL VIA OLLAMA
-(Ticket Generation)
-↓
-SQLITE DATABASE
-(Tickets and Updates)
-↓
-├── STREAMLIT DASHBOARD
-├── TELEGRAM BOT
-└── ADMIN MANAGEMENT
-    (Status + Remarks)
+![CampusFix Architecture](docs/architecture.png)
 
-A visual architecture diagram is included in:
+# System Workflow
 
-docs/architecture.png
+The following diagram shows how a maintenance issue moves through CampusFix, from image submission and AI analysis to ticket creation, administration, and tracking.
 
-The workflow diagram is included in:
-
-docs/workflow.png
-
+![CampusFix Workflow](docs/workflow.png)
 ---
 
 # Project Structure
 
+```text
 CampusFix/
 │
 ├── README.md
@@ -156,33 +136,27 @@ CampusFix/
 ├── .gitignore
 ├── requirements.txt
 │
-├── app.py
-├── telegram_bot.py
+├── app.py                  # Streamlit application
+├── telegram_bot.py         # Telegram bot
 │
-├── src/
+├── src/                    # Core application modules
 │   ├── __init__.py
 │   ├── vision_analyzer.py
 │   ├── ticket_generator.py
-│   ├── database.py
-│   └── safety_checker.py
+│   ├── safety_checker.py
+│   └── database.py
 │
-├── assets/
+├── assets/                 # Application assets
 │
-├── docs/
+├── docs/                   # Project documentation
 │   ├── architecture.png
 │   ├── workflow.png
 │   └── screenshots/
 │
-├── models/
-│
-├── data/
-│   └── campusfix.db
-│
-├── outputs/
-│
-└── demo/
-    └── demo.mp4
-
+├── models/                 # Local model-related files
+├── data/                   # Local SQLite database
+└── outputs/                # Generated application outputs
+```
 ---
 
 # Technologies Used
