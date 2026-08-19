@@ -352,19 +352,41 @@ The database is stored locally inside the `data/` directory.
 
 # Screenshots
 
-Project screenshots are stored inside:
+## Student Issue Reporting
 
-docs/screenshots/
+![Student Issue Reporting](docs/screenshots/student_issue_reporting.png)
 
-The screenshots demonstrate important parts of the application, including:
+Students can enter their details, select the campus location, and upload an image of the maintenance issue.
 
-1. Student issue reporting page.
-2. AI-generated ticket confirmation.
-3. Ticket tracking page.
-4. Administrator dashboard.
-5. Administrator ticket update page.
-6. Telegram Report New Issue workflow.
-7. Telegram ticket tracking workflow.
+## AI-Generated Ticket
+
+![AI-Generated Ticket](docs/screenshots/ai_generated_ticket.png)
+
+CampusFix analyzes the issue using local AI models and automatically generates a structured maintenance ticket.
+
+## Ticket Tracking
+
+![Ticket Tracking](docs/screenshots/ticket_tracking.png)
+
+Students can use their Ticket ID to view the current status and ticket details.
+
+## Admin Dashboard
+
+![Admin Dashboard](docs/screenshots/admin_dashboard.png)
+
+Administrators can view submitted maintenance tickets and monitor their status.
+
+## Ticket Management
+
+![Ticket Management](docs/screenshots/ticket_management.png)
+
+Administrators can update ticket status, add remarks, and maintain the ticket history.
+
+## Telegram Bot
+
+![Telegram Bot](docs/screenshots/telegram_bot.png)
+
+Students can report maintenance issues and track tickets through the Telegram bot.
 
 ---
 
