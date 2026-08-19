@@ -679,19 +679,37 @@ Because SQLite is used, a separate database server installation is not required.
 
 # Screenshots
 
-Project screenshots are stored inside:
+The following screenshots demonstrate the main features and workflow of CampusFix.
 
-`docs/screenshots/`
+## 1. Student Issue Reporting
 
-The screenshots demonstrate important parts of the application, including:
+Students can enter their details, select the building and location, and upload an image of the maintenance issue.
 
-1. Student issue reporting page.
-2. AI-generated ticket confirmation.
-3. Ticket tracking page.
-4. Administrator dashboard.
-5. Administrator ticket update page.
-6. Telegram Report New Issue workflow.
-7. Telegram ticket tracking workflow.
+![Student Issue Reporting](docs/screenshots/student_issue_reporting.jpg)
+
+---
+
+## 2. AI Image Analysis and Ticket Generation
+
+The uploaded maintenance issue image is analyzed using the local vision model, and the local language model generates a structured maintenance ticket.
+
+![AI Generated Ticket](docs/screenshots/ai_generated_ticket.jpg)
+
+---
+
+## 3. Administrator Dashboard
+
+Administrators can view submitted maintenance tickets, monitor ticket counts, review issue details, and manage ticket status.
+
+![Admin Dashboard](docs/screenshots/admin_dashboard.png)
+
+---
+
+## 6. Telegram Bot - Ticket Tracking
+
+Students can track their submitted maintenance tickets and view ticket status and update history through the Telegram bot.
+
+![Telegram Ticket Tracking](docs/screenshots/187710236608.jpg)
 
 ---
 
