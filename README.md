@@ -78,6 +78,7 @@ CampusFix addresses this problem by providing an AI-assisted maintenance reporti
 
 # System Workflow
 
+```text
 Student
 ↓
 Upload Maintenance Issue Image
@@ -94,7 +95,7 @@ SQLite Database
 ├── Streamlit Student Tracking
 ├── Admin Dashboard
 └── Telegram Bot
-
+```
 ---
 
 # Step-by-Step Flow
