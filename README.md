@@ -390,27 +390,6 @@ Students can report maintenance issues and track tickets through the Telegram bo
 
 ---
 
-# Demo Video
-
-The project demonstration video is stored at:
-
-demo/demo.mp4
-
-The demo demonstrates:
-
-1. Starting the Streamlit application.
-2. Reporting a maintenance issue.
-3. Uploading an image.
-4. Local AI image analysis.
-5. Local AI ticket generation.
-6. Ticket creation and storage.
-7. Viewing the ticket in the Admin Dashboard.
-8. Updating the ticket status.
-9. Tracking the updated ticket.
-10. Using the Telegram bot.
-
----
-
 # Privacy and Local Processing
 
 CampusFix is designed with local AI processing.
