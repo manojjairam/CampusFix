@@ -715,16 +715,19 @@ Students can track their submitted maintenance tickets and view ticket status an
 
 # Architecture and Workflow Diagrams
 
-The project includes the following documentation diagrams:
+The project includes the following documentation diagrams.
 
-`docs/architecture.png`
+## System Architecture
 
-This diagram shows the overall system architecture and communication between the user interfaces, local AI models, and SQLite database.
+This diagram shows the overall system architecture and communication between the user interfaces, local AI models, and database.
 
-`docs/workflow.png`
+![CampusFix Architecture](docs/architecture.png)
 
-This diagram shows the end-to-end workflow from image submission to ticket creation, storage, administration, and tracking.
+## System Workflow
 
+This diagram shows the end-to-end workflow from image submission to AI analysis, ticket creation, database storage, administration, and ticket tracking.
+
+![CampusFix Workflow](docs/workflow.png)
 ---
 
 # Privacy and Local Processing
