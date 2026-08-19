@@ -354,13 +354,13 @@ The database is stored locally inside the `data/` directory.
 
 ## Student Issue Reporting
 
-![Student Issue Reporting](docs/screenshots/student_issue_reporting.png)
+![Student Issue Reporting](docs/screenshots/student_issue_reporting.jpg)
 
 Students can enter their details, select the campus location, and upload an image of the maintenance issue.
 
 ## AI-Generated Ticket
 
-![AI-Generated Ticket](docs/screenshots/ai_generated_ticket.png)
+![AI-Generated Ticket](docs/screenshots/ai_generated_ticket.jpg)
 
 CampusFix analyzes the issue using local AI models and automatically generates a structured maintenance ticket.
 
