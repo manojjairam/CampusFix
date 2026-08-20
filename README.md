@@ -709,7 +709,9 @@ Administrators can view submitted maintenance tickets, monitor ticket counts, re
 
 Students can track their submitted maintenance tickets and view ticket status and update history through the Telegram bot.
 
-![Telegram Ticket Tracking](docs/screenshots/187710236608.jpg)
+![Telegram Ticket Tracking](docs/screenshots/Ticket_Track1.jpg)
+
+![Telegram Ticket Tracking](docs/screenshots/Ticket_Track2.jpg)
 
 ---
 
