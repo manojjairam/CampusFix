@@ -733,6 +733,14 @@ Students can track their submitted maintenance tickets and view ticket status an
 
 ---
 
+# Demo Video
+
+The following video demonstrates the complete CampusFix workflow, including issue reporting, AI image analysis, automatic ticket generation, administrator management, and ticket tracking.
+
+https://github.com/manojjairam/CampusFix/blob/main/docs/campusfix_demo.mp4
+
+---
+
 # Privacy and Local Processing
 
 CampusFix is designed around local AI processing.
