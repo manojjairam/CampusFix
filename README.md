@@ -733,11 +733,20 @@ Students can track their submitted maintenance tickets and view ticket status an
 
 ---
 
-# Demo Video
+# 🎥 Demo Video
 
-The following video demonstrates the complete CampusFix workflow, including issue reporting, AI image analysis, automatic ticket generation, administrator management, and ticket tracking.
+Watch the complete CampusFix demonstration below.
 
-https://github.com/manojjairam/CampusFix/blob/main/docs/campusfix_demo.mp4
+The video demonstrates:
+
+- Student issue reporting
+- Image upload
+- Local AI image analysis
+- Automatic maintenance ticket generation
+- Ticket creation
+- Ticket tracking
+
+[▶️ Watch the CampusFix Demo Video](https://github.com/manojjairam/CampusFix/blob/main/docs/campusfix_demo.mp4)
 
 ---
 
