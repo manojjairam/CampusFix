@@ -746,8 +746,7 @@ The video demonstrates:
 - Ticket creation
 - Ticket tracking
 
-[▶️ Watch the CampusFix Demo Video](https://github.com/manojjairam/CampusFix/docs/campusfix_demo.mp4)
-
+[▶️ Watch the CampusFix Demo Video](https://github.com/manojjairam/CampusFix/blob/main/docs/campusfix_demo.mp4)
 ---
 
 # Privacy and Local Processing
