@@ -4,20 +4,22 @@
 #
 # Flow:
 #
+# /start
+#    ↓
 # Report New Issue
-#        ↓
+#    ↓
 # Student Name
-#        ↓
+#    ↓
 # Register Number
-#        ↓
+#    ↓
 # Select Building
-#        ↓
+#    ↓
 # Select Room
-#        ↓
+#    ↓
 # Upload Image
-#        ↓
-# Moondream AI analyzes image automatically
-#        ↓
+#    ↓
+# Moondream AI analyzes image
+#    ↓
 # Ticket created automatically
 #
 # ==================================================
@@ -45,7 +47,22 @@ from telegram.ext import (
 )
 
 
+# ==================================================
+# CAMPUSFIX AI
+# ==================================================
+#
+# IMPORTANT:
+# We now use ONLY image analysis.
+# No strict validation.
+#
+# ==================================================
+
 from src.vision_analyzer import analyze_issue_image
+
+
+# ==================================================
+# DATABASE
+# ==================================================
 
 from src.database import (
     save_ticket,
@@ -56,12 +73,6 @@ from src.database import (
 
 # ==================================================
 # TELEGRAM BOT TOKEN
-# ==================================================
-#
-# IMPORTANT:
-# Paste your CURRENT bot token below.
-# If the old token was exposed, regenerate it first.
-#
 # ==================================================
 
 BOT_TOKEN = "8951240259:AAHe6J3BJGn-DCd3mwnp0KOjuRAW0-2niZE"
@@ -182,7 +193,9 @@ def get_main_menu():
 
     keyboard = [
 
-        ["📝 Report New Issue"],
+        [
+            "📝 Report New Issue"
+        ],
 
         [
             "🔎 Track Ticket",
@@ -198,7 +211,7 @@ def get_main_menu():
 
 
 # ==================================================
-# FORMAT TICKET DATE
+# FORMAT DATE
 # ==================================================
 
 def format_ticket_date(date_value):
@@ -232,41 +245,36 @@ def parse_ai_result(ai_result):
     ticket_data = {}
 
     expected_fields = {
-
         "issue category",
-
         "issue title",
-
         "severity",
-
         "description",
-
         "recommended action",
-
         "assigned department"
-
     }
+
 
     for line in str(ai_result).splitlines():
 
         line = line.strip()
 
         if ":" not in line:
-
             continue
+
 
         key, value = line.split(
             ":",
             1
         )
 
-        key = key.strip().lower()
 
+        key = key.strip().lower()
         value = value.strip()
 
-        if key in expected_fields:
 
+        if key in expected_fields and value:
             ticket_data[key] = value
+
 
     return ticket_data
 
@@ -278,28 +286,295 @@ def parse_ai_result(ai_result):
 def validate_severity(severity):
 
     valid_severities = [
-
         "Low",
-
         "Normal",
-
         "High",
-
         "Critical"
-
     ]
 
-    if not severity:
 
+    if not severity:
         return "Normal"
+
 
     severity = severity.strip().title()
 
-    if severity in valid_severities:
 
+    if severity in valid_severities:
         return severity
 
+
     return "Normal"
+
+
+# ==================================================
+# DETERMINE CATEGORY FROM ISSUE TITLE
+# ==================================================
+
+def determine_category(issue_title):
+
+    title = issue_title.lower()
+
+
+    if any(
+        word in title
+        for word in [
+            "chair",
+            "table",
+            "desk",
+            "bench",
+            "furniture",
+            "cupboard",
+            "cabinet"
+        ]
+    ):
+        return "Furniture Maintenance"
+
+
+    if any(
+        word in title
+        for word in [
+            "light",
+            "switch",
+            "socket",
+            "wire",
+            "electrical",
+            "power"
+        ]
+    ):
+        return "Electrical Maintenance"
+
+
+    if any(
+        word in title
+        for word in [
+            "pipe",
+            "tap",
+            "sink",
+            "leak",
+            "water",
+            "toilet"
+        ]
+    ):
+        return "Plumbing"
+
+
+    if any(
+        word in title
+        for word in [
+            "wall",
+            "ceiling",
+            "floor",
+            "tile",
+            "door",
+            "window",
+            "crack"
+        ]
+    ):
+        return "Civil Maintenance"
+
+
+    if any(
+        word in title
+        for word in [
+            "fan",
+            "air conditioner",
+            "ac",
+            "hvac"
+        ]
+    ):
+        return "HVAC"
+
+
+    if any(
+        word in title
+        for word in [
+            "computer",
+            "monitor",
+            "keyboard",
+            "mouse",
+            "printer"
+        ]
+    ):
+        return "IT Equipment"
+
+
+    return "General Maintenance"
+
+
+# ==================================================
+# DETERMINE DEPARTMENT
+# ==================================================
+
+def determine_department(category):
+
+    department_map = {
+
+        "Furniture Maintenance":
+            "Facilities Management",
+
+        "Electrical Maintenance":
+            "Electrical Maintenance Department",
+
+        "Plumbing":
+            "Plumbing Department",
+
+        "Civil Maintenance":
+            "Civil Maintenance Department",
+
+        "HVAC":
+            "Facilities Management",
+
+        "IT Equipment":
+            "IT Support Department",
+
+        "Cleaning and Sanitation":
+            "Housekeeping Department",
+
+        "Safety Maintenance":
+            "Facilities Management",
+
+        "General Maintenance":
+            "General Maintenance Department"
+    }
+
+
+    return department_map.get(
+        category,
+        "General Maintenance Department"
+    )
+
+
+# ==================================================
+# COMPLETE PARTIAL AI RESULT
+# ==================================================
+#
+# This is the important fix.
+#
+# Even if Moondream returns only:
+#
+# Issue Title: Broken chair leg
+#
+# We automatically complete the ticket.
+#
+# ==================================================
+
+def complete_ticket_data(ticket_data):
+
+
+    issue_title = ticket_data.get(
+        "issue title",
+        ""
+    ).strip()
+
+
+    # ----------------------------------------------
+    # If no title was detected, return None
+    # ----------------------------------------------
+
+    if not issue_title:
+
+        return None
+
+
+    # ----------------------------------------------
+    # CATEGORY
+    # ----------------------------------------------
+
+    issue_category = ticket_data.get(
+        "issue category"
+    )
+
+
+    if not issue_category:
+
+        issue_category = determine_category(
+            issue_title
+        )
+
+
+    # ----------------------------------------------
+    # SEVERITY
+    # ----------------------------------------------
+
+    severity = validate_severity(
+        ticket_data.get(
+            "severity",
+            "Normal"
+        )
+    )
+
+
+    # ----------------------------------------------
+    # DESCRIPTION
+    # ----------------------------------------------
+
+    description = ticket_data.get(
+        "description"
+    )
+
+
+    if not description:
+
+        description = (
+            f"Visible maintenance issue detected: "
+            f"{issue_title}."
+        )
+
+
+    # ----------------------------------------------
+    # RECOMMENDED ACTION
+    # ----------------------------------------------
+
+    recommended_action = ticket_data.get(
+        "recommended action"
+    )
+
+
+    if not recommended_action:
+
+        recommended_action = (
+            "Inspect and repair the affected item."
+        )
+
+
+    # ----------------------------------------------
+    # ASSIGNED DEPARTMENT
+    # ----------------------------------------------
+
+    assigned_department = ticket_data.get(
+        "assigned department"
+    )
+
+
+    if not assigned_department:
+
+        assigned_department = determine_department(
+            issue_category
+        )
+
+
+    return {
+
+        "issue category":
+            issue_category,
+
+        "issue title":
+            issue_title,
+
+        "severity":
+            severity,
+
+        "description":
+            description,
+
+        "recommended action":
+            recommended_action,
+
+        "assigned department":
+            assigned_department
+
+    }
 
 
 # ==================================================
@@ -313,17 +588,17 @@ async def start_command(
 
     context.user_data.clear()
 
+
     await update.message.reply_text(
 
         "🏫 Welcome to CampusFix!\n\n"
 
-        "CampusFix uses AI to identify campus "
-        "maintenance problems directly from an "
-        "uploaded image.\n\n"
+        "CampusFix uses local AI to identify campus "
+        "maintenance problems from uploaded images.\n\n"
 
-        "Simply upload a photo of the issue and "
-        "CampusFix AI will automatically analyze it "
-        "and create a maintenance ticket.",
+        "Simply upload a clear image of the issue and "
+        "CampusFix AI will analyze it and automatically "
+        "create a maintenance ticket.",
 
         reply_markup=get_main_menu()
 
@@ -346,30 +621,19 @@ async def help_command(
 
         "📝 REPORT NEW ISSUE\n\n"
 
-        "To report a maintenance issue:\n\n"
-
         "1. Enter your name\n"
         "2. Enter your register number\n"
         "3. Select the building\n"
         "4. Select the room or location\n"
-        "5. Upload a photo\n\n"
+        "5. Upload a clear photo\n\n"
 
-        "🤖 CampusFix AI automatically analyzes "
-        "the uploaded image and identifies:\n\n"
-
-        "• Issue category\n"
-        "• Issue title\n"
-        "• Severity\n"
-        "• Description\n"
-        "• Recommended action\n"
-        "• Responsible department\n\n"
-
-        "You do NOT need to describe the problem "
-        "manually.\n\n"
+        "🤖 CampusFix AI analyzes the uploaded "
+        "image and automatically creates the "
+        "maintenance ticket.\n\n"
 
         "🔎 TRACK TICKET\n\n"
 
-        "Enter your Ticket ID to check:\n"
+        "Enter your Ticket ID to check:\n\n"
 
         "• Current ticket status\n"
         "• Admin remarks\n"
@@ -381,6 +645,7 @@ async def help_command(
 
     )
 
+
     await update.message.reply_text(
 
         help_message,
@@ -391,7 +656,7 @@ async def help_command(
 
 
 # ==================================================
-# REPORT NEW ISSUE START
+# REPORT ISSUE START
 # ==================================================
 
 async def report_issue_start(
@@ -401,18 +666,20 @@ async def report_issue_start(
 
     context.user_data.clear()
 
+
     await update.message.reply_text(
 
         "📝 REPORT NEW ISSUE\n\n"
 
-        "CampusFix AI will automatically identify "
-        "the maintenance problem from your image.\n\n"
+        "CampusFix AI will identify the maintenance "
+        "problem from your uploaded image.\n\n"
 
         "Step 1 of 5: Please enter your full name.",
 
         reply_markup=ReplyKeyboardRemove()
 
     )
+
 
     return ENTER_STUDENT_NAME
 
@@ -428,6 +695,7 @@ async def enter_student_name(
 
     student_name = update.message.text.strip()
 
+
     if not student_name:
 
         await update.message.reply_text(
@@ -436,9 +704,11 @@ async def enter_student_name(
 
         return ENTER_STUDENT_NAME
 
+
     context.user_data[
         "student_name"
     ] = student_name
+
 
     await update.message.reply_text(
 
@@ -446,6 +716,7 @@ async def enter_student_name(
         "register number."
 
     )
+
 
     return ENTER_REGISTER_NUMBER
 
@@ -461,6 +732,7 @@ async def enter_register_number(
 
     register_number = update.message.text.strip()
 
+
     if not register_number:
 
         await update.message.reply_text(
@@ -469,9 +741,11 @@ async def enter_register_number(
 
         return ENTER_REGISTER_NUMBER
 
+
     context.user_data[
         "register_number"
     ] = register_number
+
 
     building_keyboard = [
 
@@ -480,6 +754,7 @@ async def enter_register_number(
         for building in CAMPUS_LOCATIONS.keys()
 
     ]
+
 
     await update.message.reply_text(
 
@@ -492,6 +767,7 @@ async def enter_register_number(
         )
 
     )
+
 
     return SELECT_BUILDING
 
@@ -507,6 +783,7 @@ async def select_building(
 
     building = update.message.text.strip()
 
+
     if building not in CAMPUS_LOCATIONS:
 
         await update.message.reply_text(
@@ -518,9 +795,11 @@ async def select_building(
 
         return SELECT_BUILDING
 
+
     context.user_data[
         "location"
     ] = building
+
 
     room_keyboard = [
 
@@ -529,6 +808,7 @@ async def select_building(
         for room in CAMPUS_LOCATIONS[building]
 
     ]
+
 
     await update.message.reply_text(
 
@@ -544,6 +824,7 @@ async def select_building(
 
     )
 
+
     return SELECT_ROOM
 
 
@@ -558,9 +839,11 @@ async def select_room(
 
     room = update.message.text.strip()
 
+
     building = context.user_data.get(
         "location"
     )
+
 
     if building not in CAMPUS_LOCATIONS:
 
@@ -575,6 +858,7 @@ async def select_room(
 
         return ConversationHandler.END
 
+
     if room not in CAMPUS_LOCATIONS[building]:
 
         await update.message.reply_text(
@@ -586,32 +870,35 @@ async def select_room(
 
         return SELECT_ROOM
 
+
     context.user_data[
         "room"
     ] = room
+
 
     await update.message.reply_text(
 
         f"Building: {building}\n"
         f"Location: {room}\n\n"
 
-        "Step 5 of 5: Upload a photo of "
-        "the maintenance issue.\n\n"
+        "Step 5 of 5: Upload a clear photo "
+        "of the maintenance issue.\n\n"
 
         "🤖 CampusFix AI will automatically "
-        "detect the problem from the image.",
+        "analyze the image and create your ticket.",
 
         reply_markup=ReplyKeyboardRemove()
 
     )
+
 
     return UPLOAD_IMAGE
 
 
 # ==================================================
 # UPLOAD IMAGE
-# AI ANALYSIS
-# AUTOMATIC TICKET CREATION
+# ANALYZE IMAGE
+# CREATE TICKET
 # ==================================================
 
 async def upload_image(
@@ -620,13 +907,14 @@ async def upload_image(
 ):
 
     image_path = None
-
     processing_message = None
+
 
     try:
 
+
         # ==========================================
-        # GET STUDENT AND LOCATION DETAILS
+        # GET USER DATA
         # ==========================================
 
         student_name = context.user_data.get(
@@ -647,17 +935,60 @@ async def upload_image(
 
 
         # ==========================================
-        # GET UPLOADED IMAGE
+        # CHECK REQUIRED DATA
         # ==========================================
+
+        if not all([
+            student_name,
+            register_number,
+            location,
+            room
+        ]):
+
+            await update.message.reply_text(
+
+                "❌ Your previous information is missing.\n\n"
+
+                "Please start the report again.",
+
+                reply_markup=get_main_menu()
+
+            )
+
+            context.user_data.clear()
+
+            return ConversationHandler.END
+
+
+        # ==========================================
+        # CHECK PHOTO
+        # ==========================================
+
+        if (
+            not update.message
+            or
+            not update.message.photo
+        ):
+
+            await update.message.reply_text(
+
+                "📷 Please upload a photo of the "
+                "maintenance issue."
+
+            )
+
+            return UPLOAD_IMAGE
+
 
         photo = update.message.photo[-1]
 
 
         # ==========================================
-        # SHOW PROCESSING MESSAGE
+        # PROCESSING MESSAGE
         # ==========================================
 
         processing_message = (
+
             await update.message.reply_text(
 
                 "📷 Image received successfully.\n\n"
@@ -665,18 +996,15 @@ async def upload_image(
                 "🤖 CampusFix AI is analyzing "
                 "the image...\n\n"
 
-                "The AI will automatically identify "
-                "the maintenance problem and create "
-                "your ticket.\n\n"
-
                 "Please wait."
 
             )
+
         )
 
 
         # ==========================================
-        # DOWNLOAD TELEGRAM IMAGE
+        # DOWNLOAD IMAGE
         # ==========================================
 
         telegram_file = await photo.get_file()
@@ -705,17 +1033,8 @@ async def upload_image(
         )
 
 
-        context.user_data[
-            "image_path"
-        ] = image_path
-
-
         # ==========================================
-        # AI IMAGE ANALYSIS
-        #
-        # asyncio.to_thread prevents Ollama's
-        # blocking local processing from blocking
-        # Telegram's async event loop.
+        # RUN AI ANALYSIS
         # ==========================================
 
         vision_result = await asyncio.to_thread(
@@ -734,6 +1053,17 @@ async def upload_image(
 
 
         # ==========================================
+        # PRINT RESULT FOR DEBUGGING
+        # ==========================================
+
+        print("\n========== CAMPUSFIX AI RESULT ==========")
+
+        print(vision_result)
+
+        print("==========================================\n")
+
+
+        # ==========================================
         # CHECK AI ERROR
         # ==========================================
 
@@ -745,14 +1075,11 @@ async def upload_image(
 
                 f"{vision_result}\n\n"
 
-                "Please try uploading another "
-                "clear image."
+                "📷 Please upload another image."
 
             )
 
-            context.user_data.clear()
-
-            return ConversationHandler.END
+            return UPLOAD_IMAGE
 
 
         # ==========================================
@@ -765,63 +1092,65 @@ async def upload_image(
 
 
         # ==========================================
-        # GET AI DETECTED VALUES
+        # COMPLETE PARTIAL AI RESPONSE
         # ==========================================
 
-        issue_category = ticket_data.get(
-
-            "issue category",
-
-            "General Maintenance"
-
+        ticket_data = complete_ticket_data(
+            ticket_data
         )
 
 
-        issue_title = ticket_data.get(
+        # ==========================================
+        # NO ISSUE TITLE
+        # ==========================================
 
-            "issue title",
+        if ticket_data is None:
 
-            "Maintenance Issue"
-
-        )
-
-
-        severity = validate_severity(
-
-            ticket_data.get(
-                "severity",
-                "Normal"
+            print(
+                "AI did not return an Issue Title."
             )
 
-        )
+
+            await processing_message.edit_text(
+
+                "❌ CampusFix AI could not identify "
+                "a maintenance issue from this image.\n\n"
+
+                "📷 Please upload another clearer "
+                "image showing the problem."
+
+            )
+
+            return UPLOAD_IMAGE
 
 
-        description = ticket_data.get(
+        # ==========================================
+        # GET TICKET VALUES
+        # ==========================================
 
-            "description",
+        issue_category = ticket_data[
+            "issue category"
+        ]
 
-            "Campus maintenance issue detected "
-            "from the uploaded image."
+        issue_title = ticket_data[
+            "issue title"
+        ]
 
-        )
+        severity = ticket_data[
+            "severity"
+        ]
 
+        description = ticket_data[
+            "description"
+        ]
 
-        recommended_action = ticket_data.get(
+        recommended_action = ticket_data[
+            "recommended action"
+        ]
 
-            "recommended action",
-
-            "Maintenance inspection required."
-
-        )
-
-
-        assigned_department = ticket_data.get(
-
-            "assigned department",
-
-            "General Maintenance"
-
-        )
+        assigned_department = ticket_data[
+            "assigned department"
+        ]
 
 
         # ==========================================
@@ -851,8 +1180,8 @@ async def upload_image(
             "room": room,
 
             "student_description":
-                "Automatically detected by AI "
-                "from uploaded image.",
+                "Automatically detected from "
+                "uploaded image using CampusFix AI.",
 
             "image_path": image_path
 
@@ -860,7 +1189,7 @@ async def upload_image(
 
 
         # ==========================================
-        # SAVE TICKET TO DATABASE
+        # SAVE TICKET
         # ==========================================
 
         ticket_id = save_ticket(
@@ -869,18 +1198,16 @@ async def upload_image(
 
 
         # ==========================================
-        # CREATED DATE
+        # DATE
         # ==========================================
 
         created_date = datetime.now().strftime(
-
             "%d %b %Y, %H:%M:%S"
-
         )
 
 
         # ==========================================
-        # UPDATE PROCESSING MESSAGE
+        # SUCCESS MESSAGE
         # ==========================================
 
         await processing_message.edit_text(
@@ -894,7 +1221,7 @@ async def upload_image(
 
 
         # ==========================================
-        # TICKET CONFIRMATION
+        # CONFIRMATION MESSAGE
         # ==========================================
 
         confirmation_message = (
@@ -906,8 +1233,7 @@ async def upload_image(
 
             f"Name: {student_name}\n"
 
-            f"Register Number: "
-            f"{register_number}\n\n"
+            f"Register Number: {register_number}\n\n"
 
 
             "📍 Location\n"
@@ -962,7 +1288,7 @@ async def upload_image(
 
 
         # ==========================================
-        # CLEAR CONVERSATION DATA
+        # CLEAR DATA AFTER SUCCESS
         # ==========================================
 
         context.user_data.clear()
@@ -974,13 +1300,19 @@ async def upload_image(
     except Exception as error:
 
 
+        print(
+            f"\nTicket creation error: {error}\n"
+        )
+
+
         error_message = (
 
-            "❌ Unable to create the "
-            "maintenance ticket.\n\n"
+            "❌ Unable to create the maintenance "
+            "ticket.\n\n"
 
-            f"Error: {error}"
+            f"Error: {error}\n\n"
 
+            "📷 Please upload the image again."
         )
 
 
@@ -1005,10 +1337,7 @@ async def upload_image(
             )
 
 
-        context.user_data.clear()
-
-
-        return ConversationHandler.END
+        return UPLOAD_IMAGE
 
 
 # ==================================================
@@ -1025,10 +1354,10 @@ async def image_required(
         "📷 Please upload a photo of the "
         "maintenance issue.\n\n"
 
-        "CampusFix AI needs the image to "
-        "automatically identify the problem."
+        "You are still on Step 5 of 5."
 
     )
+
 
     return UPLOAD_IMAGE
 
@@ -1044,17 +1373,19 @@ async def track_ticket_start(
 
     context.user_data.clear()
 
+
     await update.message.reply_text(
 
         "🔎 TRACK YOUR MAINTENANCE TICKET\n\n"
 
-        "Please enter your Ticket ID.\n\n"
+        "Please enter your numeric Ticket ID.\n\n"
 
         "Example: 1",
 
         reply_markup=ReplyKeyboardRemove()
 
     )
+
 
     return TRACK_TICKET
 
@@ -1090,6 +1421,7 @@ async def show_ticket_details(
 
     try:
 
+
         ticket = get_ticket_details(
             ticket_id
         )
@@ -1118,7 +1450,6 @@ async def show_ticket_details(
 
             f"🎫 TICKET #{ticket['ticket_id']}\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-
 
             "👤 Student Details\n"
 
@@ -1171,10 +1502,6 @@ async def show_ticket_details(
         )
 
 
-        # ==========================================
-        # GET UPDATE HISTORY
-        # ==========================================
-
         updates = get_ticket_updates(
             ticket_id
         )
@@ -1198,7 +1525,6 @@ async def show_ticket_details(
 
                 "📜 UPDATE HISTORY\n"
                 "━━━━━━━━━━━━━━━━━━"
-
             )
 
 
@@ -1216,9 +1542,7 @@ async def show_ticket_details(
 
 
                 updated_date = format_ticket_date(
-
                     update_item["updated_at"]
-
                 )
 
 
@@ -1253,6 +1577,7 @@ async def show_ticket_details(
 
     except Exception as error:
 
+
         await update.message.reply_text(
 
             "Unable to retrieve the ticket.\n\n"
@@ -1268,7 +1593,7 @@ async def show_ticket_details(
 
 
 # ==================================================
-# CANCEL CURRENT OPERATION
+# CANCEL
 # ==================================================
 
 async def cancel(
@@ -1361,14 +1686,14 @@ async def error_handler(
 def main():
 
 
-    # ==============================================
-    # CHECK TOKEN
-    # ==============================================
-
     if (
+
         not BOT_TOKEN
+
         or
-        BOT_TOKEN == "PASTE_YOUR_TELEGRAM_BOT_TOKEN_HERE"
+
+        BOT_TOKEN == "PASTE_YOUR_NEW_TELEGRAM_BOT_TOKEN_HERE"
+
     ):
 
         print(
@@ -1378,10 +1703,6 @@ def main():
 
         return
 
-
-    # ==============================================
-    # CREATE TELEGRAM APPLICATION
-    # ==============================================
 
     application = (
 
@@ -1489,20 +1810,13 @@ def main():
             UPLOAD_IMAGE: [
 
                 MessageHandler(
-
                     filters.PHOTO,
-
                     upload_image
-
                 ),
 
-
                 MessageHandler(
-
                     ~filters.PHOTO,
-
                     image_required
-
                 )
 
             ]
@@ -1629,10 +1943,6 @@ def main():
     )
 
 
-    # ==============================================
-    # START BOT
-    # ==============================================
-
     print(
         "========================================"
     )
@@ -1646,7 +1956,11 @@ def main():
     )
 
     print(
-        "Student Description: NOT REQUIRED"
+        "AI Image Validation: DISABLED"
+    )
+
+    print(
+        "Partial AI Response Handling: ENABLED"
     )
 
     print(

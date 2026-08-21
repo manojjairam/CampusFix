@@ -1,66 +1,80 @@
-# src/safety_checker.py
-
-import json
 import ollama
 
 
 # ==================================================
-# LOCAL OLLAMA MODEL
+# LOCAL IMAGE VALIDATION MODEL
 # ==================================================
 
-MODEL_NAME = "llama3.2:3b"
+MODEL_NAME = "moondream"
 
 
 # ==================================================
-# CHECK SAFETY
+# VALIDATE MAINTENANCE IMAGE
 # ==================================================
 
-def check_safety(ticket_information):
+def validate_maintenance_image(image_path):
     """
-    Analyze a maintenance ticket for safety risks using
-    the local Llama 3.2 model through Ollama.
+    Checks whether an uploaded image is relevant to a
+    university or campus maintenance issue.
 
-    Returns a dictionary containing:
-    - severity
-    - escalation
-    - message
+    Returns a dictionary:
+    {
+        "valid": True/False,
+        "reason": "..."
+    }
     """
 
-    prompt = f"""
-You are CampusFix Safety AI for a university campus.
+    prompt = """
+You are an image validation system for CampusFix, a
+university maintenance issue reporting application.
 
-Analyze the maintenance issue below and determine whether
-it requires normal maintenance or urgent escalation.
+Your ONLY task is to decide whether the uploaded image
+is relevant to a campus maintenance, infrastructure,
+facility, equipment, cleanliness, or safety issue.
 
-IMPORTANT RULES:
+A VALID image may show things such as:
 
-1. Use only the provided ticket information.
-2. Do not invent hazards.
-3. Choose exactly one severity:
-   Low, Normal, High, or Critical.
-4. Choose an appropriate escalation level.
-5. Critical means immediate danger or serious risk requiring
-   urgent action.
-6. High means a significant safety or operational risk that
-   should receive priority attention.
-7. Normal means routine maintenance without an urgent danger.
-8. Low means minor inconvenience with minimal risk.
-9. Keep the safety message short and clear.
-10. Return ONLY valid JSON.
-11. Do not use markdown.
-12. Do not include explanations outside the JSON.
+- Broken or damaged furniture
+- Faulty electrical equipment
+- Damaged lights or fans
+- Water leakage or plumbing problems
+- Damaged walls, floors, ceilings, doors, or windows
+- HVAC problems
+- Damaged IT or laboratory equipment
+- Cleaning or sanitation problems
+- Campus safety or infrastructure problems
+- Any visible object or area that reasonably requires
+  maintenance or repair
 
-MAINTENANCE TICKET:
+An INVALID image includes:
 
-{ticket_information}
+- Selfies or unrelated people
+- Random portraits
+- Food
+- Animals or pets
+- Memes
+- Random screenshots
+- Landscapes
+- Vehicles
+- Entertainment images
+- Images with no visible maintenance-related object,
+  infrastructure, facility, equipment, or issue
 
-Return exactly this JSON format:
+IMPORTANT:
 
-{{
-    "severity": "Low or Normal or High or Critical",
-    "escalation": "appropriate escalation level",
-    "message": "short safety assessment message"
-}}
+1. Do not assume an issue exists if the image does not
+   reasonably show one.
+2. If the image is unclear, unrelated, or cannot be
+   verified as maintenance-related, mark it INVALID.
+3. Do not invent maintenance problems.
+4. Return ONLY these two lines.
+5. Do not use markdown.
+6. Do not add explanations before or after the two lines.
+
+Return exactly:
+
+VALID: YES or NO
+REASON: <short reason>
 """
 
     try:
@@ -70,100 +84,54 @@ Return exactly this JSON format:
             messages=[
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": prompt,
+                    "images": [image_path]
                 }
             ],
             options={
-                "temperature": 0.1
-            }
+                "temperature": 0,
+                "num_predict": 60,
+                "num_ctx": 1024
+            },
+            keep_alive="15m"
         )
 
-        generated_text = response["message"]["content"].strip()
+        result = response["message"]["content"].strip()
 
-        # ------------------------------------------
-        # REMOVE POSSIBLE MARKDOWN CODE BLOCKS
-        # ------------------------------------------
+        valid = False
+        reason = "Unable to verify whether the image is relevant."
 
-        if generated_text.startswith("```json"):
+        for line in result.splitlines():
 
-            generated_text = generated_text.replace(
-                "```json",
-                "",
-                1
-            ).strip()
+            line = line.strip()
 
-        elif generated_text.startswith("```"):
+            if ":" not in line:
+                continue
 
-            generated_text = generated_text.replace(
-                "```",
-                "",
-                1
-            ).strip()
+            key, value = line.split(":", 1)
 
-        if generated_text.endswith("```"):
+            key = key.strip().lower()
+            value = value.strip()
 
-            generated_text = generated_text[:-3].strip()
+            if key == "valid":
 
-        # ------------------------------------------
-        # PARSE JSON
-        # ------------------------------------------
+                valid = value.upper() == "YES"
 
-        safety_result = json.loads(generated_text)
+            elif key == "reason":
 
-        severity = safety_result.get(
-            "severity",
-            "Normal"
-        )
-
-        escalation = safety_result.get(
-            "escalation",
-            "Normal Maintenance"
-        )
-
-        message = safety_result.get(
-            "message",
-            "Maintenance assessment completed."
-        )
-
-        # ------------------------------------------
-        # VALIDATE SEVERITY
-        # ------------------------------------------
-
-        valid_severities = [
-            "Low",
-            "Normal",
-            "High",
-            "Critical"
-        ]
-
-        if severity not in valid_severities:
-
-            severity = "Normal"
+                reason = value
 
         return {
-            "severity": severity,
-            "escalation": escalation,
-            "message": message
-        }
-
-    except json.JSONDecodeError:
-
-        return {
-            "severity": "Normal",
-            "escalation": "Manual Review Required",
-            "message": (
-                "The local AI returned an invalid safety "
-                "assessment format. Manual review is recommended."
-            )
+            "valid": valid,
+            "reason": reason
         }
 
     except Exception as error:
 
         return {
-            "severity": "Normal",
-            "escalation": "Safety Check Unavailable",
-            "message": (
-                "Unable to complete the local safety assessment: "
+            "valid": False,
+            "reason": (
+                "Image validation failed: "
                 f"{error}"
             )
         }

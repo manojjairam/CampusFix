@@ -37,8 +37,8 @@ CAMPUS LOCATION:
 Building: {location if location else "Not provided"}
 Room / Exact Location: {room if room else "Not provided"}
 
-Analyze the maintenance problem and return ONLY the following
-six lines.
+Analyze the maintenance problem shown in the image and return
+ONLY the following six lines.
 
 Issue Category: <category>
 Issue Title: <short professional title>
@@ -54,7 +54,7 @@ STRICT RULES:
 3. Identify the maintenance problem shown in the image.
 4. Do not invent objects, damage, hazards, or faults.
 5. If the exact fault is unclear, use cautious wording.
-6. Use the student description only to support the image.
+6. Use the student description only as supporting information.
 7. Issue Category must be relevant to university maintenance.
 8. Severity must be exactly one of:
    Low
@@ -105,10 +105,14 @@ General Maintenance Department
                 "num_predict": 120,
                 "num_ctx": 1024
             },
-            keep_alive="15m"
+            keep_alive="30m"
         )
 
         analysis = response["message"]["content"].strip()
+
+        print("\n========== CAMPUSFIX AI RESULT ==========")
+        print(analysis)
+        print("==========================================\n")
 
         if not analysis:
 
