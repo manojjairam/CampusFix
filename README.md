@@ -677,6 +677,24 @@ Because SQLite is used, a separate database server installation is not required.
 
 ---
 
+# Architecture and Workflow Diagrams
+
+The project includes the following documentation diagrams.
+
+## System Architecture
+
+This diagram shows the overall system architecture and communication between the user interfaces, local AI models, and database.
+
+![CampusFix Architecture](docs/architecture.png)
+
+## System Workflow
+
+This diagram shows the end-to-end workflow from image submission to AI analysis, ticket creation, database storage, administration, and ticket tracking.
+
+![CampusFix Workflow](docs/workflow.png)
+
+---
+
 # Screenshots
 
 The following screenshots demonstrate the main features and workflow of CampusFix.
@@ -713,23 +731,6 @@ Students can track their submitted maintenance tickets and view ticket status an
 
 ![Telegram Ticket Tracking](docs/screenshots/Ticket_Track2.jpg)
 
----
-
-# Architecture and Workflow Diagrams
-
-The project includes the following documentation diagrams.
-
-## System Architecture
-
-This diagram shows the overall system architecture and communication between the user interfaces, local AI models, and database.
-
-![CampusFix Architecture](docs/architecture.png)
-
-## System Workflow
-
-This diagram shows the end-to-end workflow from image submission to AI analysis, ticket creation, database storage, administration, and ticket tracking.
-
-![CampusFix Workflow](docs/workflow.png)
 ---
 
 # Privacy and Local Processing
